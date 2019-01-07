@@ -1,0 +1,3 @@
+client_index-1!
+current_turn-1!
+current_turn-deneme deneme denemeee!
