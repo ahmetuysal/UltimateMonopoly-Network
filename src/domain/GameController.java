@@ -12,13 +12,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 
+import domain.bot.BotPlayer;
 import domain.card.Card;
 import domain.card.CardFactory;
 import domain.card.OwnableCard;
 import domain.card.RollThreeCard;
+import domain.communication.network.CommunicationFacade;
 import domain.die.Cup;
 import domain.die.DieValue;
 import domain.gamestate.GameState;
+import domain.square.Location;
 import domain.square.OwnableSquare;
 import domain.square.Square;
 import domain.square.TitleDeedSquare;
@@ -62,7 +65,7 @@ public class GameController extends Observable {
 	private String localIp;
 
 	private static GameController instance;
-	
+		
 	private LinkedList<String> actionQueue;
 
 	public static synchronized GameController getInstance() {
@@ -77,6 +80,7 @@ public class GameController extends Observable {
 		cup = new Cup();
 		players = new ArrayList<>();
 		actionQueue = new LinkedList<>();
+		withNetwork = false;
 		initTokens();
 		initCards();
 		try {
@@ -233,13 +237,20 @@ public class GameController extends Observable {
 	}
 
 	public void passTurn() {
+		publishPropertyEvent("buyHouse", true, false);
+		publishPropertyEvent("buyHotel", true, false);
+		publishPropertyEvent("buySkyscraper", true, false);
 		if(!actionQueue.isEmpty()) {
+			System.out.println(actionQueue.toString());
 			nextAction();
 		}else if (playerSentToJailForDouble || !cup.isDouble() || cup.isTriple()) {
 			playerSentToJailForDouble = false;
 			consecutiveDoubles = 0;
-			this.currentPlayerIndex = (currentPlayerIndex + 1) % players.size();
-			setCurrentPlayer(currentPlayerIndex);
+			if(!withNetwork) {
+				this.currentPlayerIndex = (currentPlayerIndex + 1) % players.size();
+				setCurrentPlayer(currentPlayerIndex);
+			}
+			
 			actionQueue.clear();
 			publishPropertyEvent("isTurnFinished", false, true);
 			if(!currentPlayer.getLocalIp().equals(this.localIp)) {
@@ -264,9 +275,37 @@ public class GameController extends Observable {
 		publishPropertyEvent("currentLocationBuyable", currentLocationBuyable, isBuyable);
 		currentLocationBuyable = isBuyable;
 	}
+	
+	public void promptHurricaneSquares() {
+		publishPropertyEvent("hurricaneSquares", null, board.getAllOwnedTitleDeedLocations());
+	}
+	
+	public void useHurricaneCard(Location selectedLocation) {
+		TitleDeedSquare sq = (TitleDeedSquare) board.getSquare(selectedLocation);
+		Player player = sq.getOwner();
+		System.out.println("Hurricane is used in controller.");
+		System.out.println("Player: " + player);
+		System.out.println("Square: " + sq);
+		List<TitleDeedSquare> props = player.getTitleDeedsWithColor(sq.getColor());
+		for(int i = 0; i < props.size(); i++) {
+			TitleDeedSquare propsI = props.get(i);
+			if(propsI.getNumHouses()!=0) {
+				propsI.setNumHouses(propsI.getNumHouses()-1);
+			}
+			else if(propsI.getNumHotels()!=0) {
+				propsI.setNumHotels(propsI.getNumHotels()-1);
+				propsI.setNumHouses(4);
+			}
+			else if(propsI.getNumSkyscrapers()!=0) {
+				propsI.setNumSkyscrapers(propsI.getNumSkyscrapers()-1);
+				propsI.setNumHotels(1);
+			}
+		}
+	}
 
 	public void promptDrawChanceCard() {
 		publishPropertyEvent("drawChanceCard", false, true);
+		
 	}
 
 	public void promptDrawCommunityChestCard() {
@@ -308,6 +347,10 @@ public class GameController extends Observable {
 	public void increasePoolMoney(int amount) {
 		poolMoney += amount;
 	}
+	
+	public void decreasePoolMoney(int amount) {
+		poolMoney -= amount;
+	}
 
 	/**
 	 * Registers a new player with the given nick name and token name if arguments
@@ -328,19 +371,28 @@ public class GameController extends Observable {
 	 * @return <tt>true</tt> if new player with nickName as its name and tokenName
 	 *         as its token is created, <tt>false</tt> otherwise.
 	 */
-	public boolean registerUser(String nickName, String tokenName) {
+	public boolean registerUser(String nickName, String tokenName, boolean isBot) {
 		if (Token.isTokenAvailable(tokenName) && !nickName.equals("")) {
 			for (int i = 0; i < players.size(); i++) {
 				if (players.get(i).getNickName().equals(nickName)) {
 					return false;
 				}
 			}
-
-			Player player = new Player(nickName);
-			Token token = new Token(Board.getStartLocation(), tokenName);
-			players.add(player);
-			player.setToken(token);
-			board.addToken(token);
+			
+			if(isBot) {
+				BotPlayer player = new BotPlayer(nickName);
+				Token token = new Token(Board.getStartLocation(), tokenName);
+				players.add(player);
+				player.setToken(token);
+				board.addToken(token);
+			}else {
+				Player player = new Player(nickName);
+				Token token = new Token(Board.getStartLocation(), tokenName);
+				players.add(player);
+				player.setToken(token);
+				board.addToken(token);
+			}
+			
 			return true;
 		} else {
 			return false;
@@ -356,6 +408,8 @@ public class GameController extends Observable {
 		// TODO
 		currentPlayerIndex = 0;
 		currentPlayer = players.isEmpty() ? null : players.get(currentPlayerIndex);
+		if(currentPlayer instanceof BotPlayer)
+			publishPropertyEvent("controller.currentPlayer", null, currentPlayer);
 	}
 
 	public void initRollThreeCards() {
@@ -365,16 +419,28 @@ public class GameController extends Observable {
 			rollThreeCardList.addLast(card);
 		}
 	}
+	
+	private void promptTeleport() {
+		publishPropertyEvent("teleport", false, true);
+	}
+	
+	public void teleport(Location location) {
+		board.teleport(currentPlayer, location);
+		publishPropertyEvent("isTurnFinished", true, false);
+	}
 
 	public void playTurn() {
-
+		if(withNetwork) {
+			this.currentPlayerIndex = (currentPlayerIndex + 1) % players.size();
+			setCurrentPlayer(currentPlayerIndex);
+		}
 		rollDice();
 		handleJail();
 		
 		if(cup.isTriple()) {
-			board.teleport(currentPlayer);
-			publishPropertyEvent("isTurnFinished", true, false);
+			promptTeleport();
 			actionQueue.clear();
+			publishPropertyEvent("updateNetwork", false, true);
 			return;
 		}
 		
@@ -392,6 +458,7 @@ public class GameController extends Observable {
 				playerSentToJailForDouble = true;
 				actionQueue.clear();
 				publishPropertyEvent("isTurnFinished", true, false);
+				publishPropertyEvent("updateNetwork", false, true);
 				return;
 			}
 			actionQueue.add("double");
@@ -408,8 +475,8 @@ public class GameController extends Observable {
 		
 		publishPropertyEvent("updateNetwork", false, true);
 		publishPropertyEvent("changeRoll",true,false);
-		publishPropertyEvent("pass",false,true);
-		
+		//publishPropertyEvent("pass",false,true);	
+
 		handleBuilding();
 		
 		if(currentPlayer.isInJail()) {
@@ -418,6 +485,7 @@ public class GameController extends Observable {
 			return;
 		}
 	}
+	
 	public void handleBuilding() {
 		if(board.houseCheck(currentPlayer))
 			publishPropertyEvent("buyHouse", false, true);
@@ -432,7 +500,9 @@ public class GameController extends Observable {
 			if (cup.isDouble()) {
 				currentPlayer.getOutOfJail();
 			}
-			currentPlayer.decreaseJailTime();
+			else {
+				currentPlayer.decreaseJailTime();
+			}
 		}
 	}
 	
@@ -500,7 +570,6 @@ public class GameController extends Observable {
 			cup.rollDices();
 		}
 
-		System.out.println("Rolled dice in controller.");
 		DieValue[] newValues = cup.getFaceValues();
 		publishPropertyEvent("die1", die1Value, newValues[0]);
 		die1Value = newValues[0];
@@ -610,6 +679,9 @@ public class GameController extends Observable {
 
 	public void setWithNetwork(boolean withNetwork) {
 		this.withNetwork = withNetwork;
+		if(withNetwork) {
+			new CommunicationFacade();
+		}
 	}
 
 	public void setCurrentPlayer(Player currentPlayer) {
@@ -636,7 +708,7 @@ public class GameController extends Observable {
 		// chanceCardList.add(CardFactory.getCard("Foreclosed Property Sale!"));
 		// chanceCardList.add(CardFactory.getCard("Get Rollin'"));
 		// chanceCardList.add(CardFactory.getCard("Forward Thinker"));
-		// chanceCardList.add(CardFactory.getCard("Hurricane makes landfall!"));
+		chanceCardList.add(CardFactory.getCard("Hurricane makes landfall!"));
 		// chanceCardList.add(CardFactory.getCard("Property Taxes"));
 		// chanceCardList.add(CardFactory.getCard("Ride the Subway"));
 		// chanceCardList.add(CardFactory.getCard("Social Media Fail!"));
@@ -696,10 +768,18 @@ public class GameController extends Observable {
 				currentPlayer.addCard((OwnableCard) lastDrawnCard);
 				playRollThree();
 			}
-			else
+			else {
+				Square sq = board.getSquare(currentPlayer.getToken().getLocation());
 				lastDrawnCard.useCard(currentPlayer, "");
+				Square newSq = board.getSquare(currentPlayer.getToken().getLocation());
+				if(newSq instanceof OwnableSquare) {
+					if(!newSq.equals(sq))
+						publishPropertyEvent("buyable", false, true);
+				}
+			}	
 		}
 		lastDrawnCard = null;
+		publishPropertyEvent("cardIsUsed", true, false);
 	}
 	
 	public void keepCard() {
@@ -710,6 +790,7 @@ public class GameController extends Observable {
 				System.out.println("ERROR: You can only keep ownable cards.");
 		}
 		lastDrawnCard = null;
+		publishPropertyEvent("cardIsKept", true, false);
 	}
 	
 
