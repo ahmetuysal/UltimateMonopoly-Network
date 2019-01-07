@@ -9,13 +9,23 @@ public class ServerHost {
 
 	private GameState sharedGameState;
 
+	private boolean isPlayerAdded = false;
+
+	public boolean getPlayerAdded() {
+		return isPlayerAdded;
+	}
+
+	public void setPlayerAdded(boolean flag) {
+		isPlayerAdded = flag;
+	}
+
 	private ServerHost() {
 		sharedGameState = new GameState();
 		sharedGameState.setLocalIp("trivial");
 	}
 
 	public static synchronized ServerHost getInstance() {
-		if(uniqueInstance == null) {
+		if (uniqueInstance == null) {
 			uniqueInstance = new ServerHost();
 		}
 		return uniqueInstance;
@@ -27,15 +37,16 @@ public class ServerHost {
 
 	public void setSharedGameState(GameState newGameState) {
 		List<Player> players = newGameState.getPlayers();
-		if (sharedGameState.getPlayers() == null || sharedGameState.getPlayers().isEmpty())
+		if (sharedGameState.getPlayers() == null || sharedGameState.getPlayers().isEmpty()) {
 			sharedGameState.setPlayers(newGameState.getPlayers());
-		else {
+			isPlayerAdded = true;
+		} else {
 			for (Player player : players) {
 				int index = sharedGameState.getPlayers().indexOf(player);
 				if (index < 0) {
 					sharedGameState.getPlayers().add(player);
-				}
-				else {
+					isPlayerAdded = true;
+				} else {
 					Player playerInList = sharedGameState.getPlayers().get(index);
 					playerInList.setTotalMoney(player.getTotalMoney());
 					playerInList.setReverseDirection(player.isReverseDirection());
@@ -60,8 +71,8 @@ public class ServerHost {
 		sharedGameState.setCup(newGameState.getCup());
 		sharedGameState.setLocalIp(newGameState.getLocalIp());
 		sharedGameState.setCurrentPlayerIndex(newGameState.getCurrentPlayerIndex());
-		System.out.println("Server has changed its sharedGameState to " + newGameState.getPlayers().toString() + " from " + newGameState.getLocalIp());
+		System.out.println("Server has changed its sharedGameState to " + newGameState.getPlayers().toString()
+				+ " from " + newGameState.getLocalIp());
 	}
-
 
 }

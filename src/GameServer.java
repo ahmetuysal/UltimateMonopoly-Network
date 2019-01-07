@@ -67,7 +67,7 @@ public class GameServer {
 				System.out.println("Current socket " + s);
 				System.out.println("My socket " + s2);
 				System.out.println("Are they equal: " + (s == s2));
-				if (s != s2) {
+				if (ServerHost.getInstance().getPlayerAdded() || s != s2) {
 					ObjectOutputStream os = allOSs.get(s);
 					try {
 
@@ -84,6 +84,7 @@ public class GameServer {
 				}
 			}
 		}
+		ServerHost.getInstance().setPlayerAdded(false);
 	}
 
 	public void removeConnection(Socket s) {
