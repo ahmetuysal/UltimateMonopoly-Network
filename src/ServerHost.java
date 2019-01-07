@@ -1,10 +1,6 @@
 import domain.Player;
 import domain.gamestate.GameState;
-
-import java.net.Inet4Address;
-import java.net.Socket;
-import java.net.UnknownHostException;
-import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 public class ServerHost {
@@ -13,11 +9,9 @@ public class ServerHost {
 
 	private GameState sharedGameState;
 
-
 	private ServerHost() {
 		sharedGameState = new GameState();
 		sharedGameState.setLocalIp("trivial");
-
 	}
 
 	public static synchronized ServerHost getInstance() {
@@ -32,10 +26,8 @@ public class ServerHost {
 	}
 
 	public void setSharedGameState(GameState newGameState) {
-
-
 		List<Player> players = newGameState.getPlayers();
-		if (sharedGameState.getPlayers() == null || sharedGameState.getPlayers().isEmpty() )
+		if (sharedGameState.getPlayers() == null || sharedGameState.getPlayers().isEmpty())
 			sharedGameState.setPlayers(newGameState.getPlayers());
 		else {
 			for (Player player : players) {
@@ -57,14 +49,18 @@ public class ServerHost {
 					playerInList.setLocalIp(player.getLocalIp());
 				}
 			}
+			players.sort(new Comparator<Player>() {
+				@Override
+				public int compare(Player o1, Player o2) {
+					return o1.getNickName().compareTo(o2.getNickName());
+				}
+			});
 		}
 
-
-		System.out.println("Current player index:"+newGameState.getCurrentPlayerIndex());
 		sharedGameState.setCup(newGameState.getCup());
 		sharedGameState.setLocalIp(newGameState.getLocalIp());
 		sharedGameState.setCurrentPlayerIndex(newGameState.getCurrentPlayerIndex());
-		System.out.println("Server has changed its sharedGameState to " + sharedGameState);
+		System.out.println("Server has changed its sharedGameState to " + newGameState.getPlayers().toString() + " from " + newGameState.getLocalIp());
 	}
 
 

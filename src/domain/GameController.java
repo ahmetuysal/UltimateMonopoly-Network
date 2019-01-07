@@ -253,11 +253,7 @@ public class GameController extends Observable {
 			
 			actionQueue.clear();
 			publishPropertyEvent("isTurnFinished", false, true);
-			if(!currentPlayer.getLocalIp().equals(this.localIp)) {
-				publishPropertyEvent("blockButtons",false,true);
-			}else {
-				publishPropertyEvent("blockButtons",true,false);
-			}
+			
 		}
 		publishPropertyEvent("updateNetwork", false, true);
 	}
@@ -408,8 +404,9 @@ public class GameController extends Observable {
 		// TODO
 		currentPlayerIndex = 0;
 		currentPlayer = players.isEmpty() ? null : players.get(currentPlayerIndex);
-		if(currentPlayer instanceof BotPlayer)
-			publishPropertyEvent("controller.currentPlayer", null, currentPlayer);
+		if(players.get(0) instanceof BotPlayer) {
+			publishPropertyEvent("controller.currentPlayer",null, players.get(0));
+		}
 	}
 
 	public void initRollThreeCards() {
@@ -439,6 +436,8 @@ public class GameController extends Observable {
 		
 		if(cup.isTriple()) {
 			promptTeleport();
+			if(currentPlayer instanceof BotPlayer)
+				publishPropertyEvent("tripleCase", false, true);
 			actionQueue.clear();
 			publishPropertyEvent("updateNetwork", false, true);
 			return;
@@ -486,6 +485,12 @@ public class GameController extends Observable {
 		}
 	}
 	
+	public void handleTripleForBot() {
+		board.teleport(currentPlayer, new Location(1,0));
+		publishPropertyEvent("botHasChosen",false,true);
+		publishPropertyEvent("isTurnFinished", true, false);
+	}
+	
 	public void handleBuilding() {
 		if(board.houseCheck(currentPlayer))
 			publishPropertyEvent("buyHouse", false, true);
@@ -511,6 +516,7 @@ public class GameController extends Observable {
 		if(nextAction.equals("mrmonopoly")) {
 			board.moveToNextUnownedProperty(currentPlayer);
 			publishPropertyEvent("buyable",false,true);
+			publishPropertyEvent("mrMonopoly", false, true);
 		}else if(nextAction.equals("busicon")) {
 			board.moveToNextChanceOrCommunityChestSquare(currentPlayer);
 			publishPropertyEvent("buyable",false,false);
@@ -655,6 +661,10 @@ public class GameController extends Observable {
 				return o1.getNickName().compareTo(o2.getNickName());
 			}
 		});
+		
+		if(players.get(0) instanceof BotPlayer) {
+			publishPropertyEvent("controller.currentPlayer",null, players.get(0));
+		}
 	}
 
 	public int getCurrentPlayerIndex() {

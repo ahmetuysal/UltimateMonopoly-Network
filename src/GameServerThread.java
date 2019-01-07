@@ -28,11 +28,9 @@ public class GameServerThread extends Thread {
      */
     public void run()
     {
-    	
         try
         {
-            is = new ObjectInputStream(s.getInputStream());
-          
+            is = new ObjectInputStream(s.getInputStream());     
         }
         catch (IOException e)
         {
@@ -41,7 +39,6 @@ public class GameServerThread extends Thread {
 
         try
         {
-
             Object object = null;
             try {
                 System.out.println("is run waiting");
@@ -58,12 +55,8 @@ public class GameServerThread extends Thread {
             {
 
                 System.out.println("----SEND-START------->>-----------");
-                System.out.println("Server sending:");
-                System.out.println(incomingGameState);
-
+                System.out.println(incomingGameState.getPlayers().size());
                 ServerHost.getInstance().setSharedGameState(incomingGameState);
-
-
                 gameServer.broadcastTheObject(ServerHost.getInstance().getSharedGameState(),s);
                 System.out.println("----SEND-OVER-------<<----------");
 

@@ -12,116 +12,92 @@ import java.util.Hashtable;
 public class GameServer {
 
 	private ServerSocket serverSocket;
-    public static final int DEFAULT_SERVER_PORT = 4477;
-    private Hashtable allObjectOutputStreams = new Hashtable();
-    private HashMap<Socket, ObjectOutputStream> allOSs = new HashMap<>();
-    /**
-     * The constructor of GameServer
-     * @param serverPort The chosen port for the data flow
-     */
-	public GameServer(int serverPort) {
-		
-		try
-        {
-            serverSocket = new ServerSocket(serverPort);
-            System.out.println("Opened up a server socket on " + Inet4Address.getLocalHost());
-        }
-        catch (IOException e)
-        {
-            e.printStackTrace();
-            System.err.println("GameServer class.Constructor exception on opening a server socket");
-        }
-        while (true)
-        {
-            ListenAndAccept();
-        }
-		
-	}
-	
+	public static final int DEFAULT_SERVER_PORT = 4477;
+	private Hashtable allObjectOutputStreams = new Hashtable();
+	private HashMap<Socket, ObjectOutputStream> allOSs = new HashMap<>();
+
 	/**
-     * Listens to the line and starts a connection on receiving a request from the client
-     * The connection is started and initiated as a GameServerThread object
-     */
-    private void ListenAndAccept()
-    {
-        Socket s;
-        try
-        {
-            s = serverSocket.accept();
-            ObjectOutputStream os = new ObjectOutputStream(s.getOutputStream());
-            allObjectOutputStreams.put(s, os);
-            allOSs.put(s,os);
-            System.out.println("A new player connected with a client on the address of " + s.getRemoteSocketAddress());
-            new GameServerThread(s, this);
+	 * The constructor of GameServer
+	 * 
+	 * @param serverPort
+	 *            The chosen port for the data flow
+	 */
+	public GameServer(int serverPort) {
+		try {
+			serverSocket = new ServerSocket(serverPort);
+			System.out.println("Opened up a server socket on " + Inet4Address.getLocalHost());
+		} catch (IOException e) {
+			e.printStackTrace();
+			System.err.println("GameServer class.Constructor exception on opening a server socket");
+		}
+		while (true) {
+			ListenAndAccept();
+		}
 
-        }
+	}
 
-        catch (Exception e)
-        {
-            e.printStackTrace();
-            System.err.println("GameServer Class.Connection establishment error inside listen and accept function");
-        }
-    }
+	/**
+	 * Listens to the line and starts a connection on receiving a request from the
+	 * client The connection is started and initiated as a GameServerThread object
+	 */
+	private void ListenAndAccept() {
+		Socket s;
+		try {
+			s = serverSocket.accept();
+			ObjectOutputStream os = new ObjectOutputStream(s.getOutputStream());
+			allObjectOutputStreams.put(s, os);
+			allOSs.put(s, os);
+			System.out.println("A new player connected with a client on the address of " + s.getRemoteSocketAddress());
+			new GameServerThread(s, this);
 
-    Enumeration getOutputStreams(){
-        return allObjectOutputStreams.elements();
-    }
+		} catch (Exception e) {
+			e.printStackTrace();
+			System.err.println("GameServer Class.Connection establishment error inside listen and accept function");
+		}
+	}
 
-    public void broadcastTheObject(GameState outgoingGameState, Socket s2){
-        synchronized (allOSs){
-            for(Socket s : allOSs.keySet()){
-                System.out.println("allOSs size "+allOSs.size());
-                System.out.println("Current socket "+s);
-                System.out.println("My socket "+s2);
-                System.out.println("Are they equal: "+(s == s2));
-                if(s != s2){
-                    ObjectOutputStream os = allOSs.get(s);
-                    try {
+	// Enumeration getOutputStreams(){
+	// return allObjectOutputStreams.elements();
+	// }
 
-                        System.out.println("Gonderdigim adam: "+s);
-                        System.out.println("Gonderdigim sey: "+outgoingGameState);
+	public void broadcastTheObject(GameState outgoingGameState, Socket s2) {
+		synchronized (allOSs) {
+			for (Socket s : allOSs.keySet()) {
+				System.out.println("allOSs size " + allOSs.size());
+				System.out.println("Current socket " + s);
+				System.out.println("My socket " + s2);
+				System.out.println("Are they equal: " + (s == s2));
+				if (s != s2) {
+					ObjectOutputStream os = allOSs.get(s);
+					try {
 
-                        os.writeObject(outgoingGameState);
-                        os.flush();
-                        os.reset();
+						System.out.println("Gonderdigim adam: " + s);
+						System.out.println("Gonderdigim sey: " + outgoingGameState);
 
-                    } catch (IOException e1) {
-                        e1.printStackTrace();
+						os.writeObject(outgoingGameState);
+						os.flush();
+						os.reset();
 
-                    }
-                }
+					} catch (IOException e1) {
+						e1.printStackTrace();
+					}
+				}
+			}
+		}
+	}
 
-            }
-        }
-    }
+	public void removeConnection(Socket s) {
 
-    public void broadcastTheObject2(GameState outgoingGameState){
-        synchronized (allObjectOutputStreams){
-            for(Enumeration e = getOutputStreams(); e.hasMoreElements();){
-                ObjectOutputStream os = (ObjectOutputStream)e.nextElement();
-                try {
-                    os.writeObject(outgoingGameState);
-                    os.flush();
-                    os.reset();
-                } catch (IOException e1) {
-                    e1.printStackTrace();
-                }
-            }
-        }
-    }
+		synchronized (allObjectOutputStreams) {
+			System.out.println("Removing connection to " + s);
+			allObjectOutputStreams.remove(s);
+			try {
+				s.close();
+			} catch (IOException ie) {
+				ie.printStackTrace();
+			}
+		}
 
-    public void removeConnection(Socket s){
-
-        synchronized (allObjectOutputStreams){
-            System.out.println("Removing connection to "+s);
-            allObjectOutputStreams.remove(s);
-            try {
-                s.close();
-            } catch (IOException ie){
-                ie.printStackTrace();
-            }
-        }
-
-    }
+	}
 
 }
